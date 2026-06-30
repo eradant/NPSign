@@ -311,6 +311,14 @@ NATIONAL PARK</textarea>
     </div>
 
     <div class="section">
+      <div class="section-title">Lettering</div>
+      <div class="pillrow" id="letteringPills">
+        <div class="pill active" data-lettering="serif">Routed Serif</div>
+        <div class="pill" data-lettering="script">Flowing Script</div>
+      </div>
+    </div>
+
+    <div class="section">
       <div class="section-title">Letter Profile</div>
       <div class="depthrow" id="depthCards">
         <div class="depth-card active" data-depth="recessed">
@@ -325,6 +333,14 @@ NATIONAL PARK</textarea>
           <svg viewBox="0 0 48 28"><path d="M2 18 L18 18 L18 10 L30 10 L30 18 L46 18" stroke="#c4a35a" stroke-width="2" fill="none"/></svg>
           <div class="lbl">Raised</div>
         </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Corners</div>
+      <div class="pillrow" id="cornerPills">
+        <div class="pill active" data-corners="rounded">Rounded</div>
+        <div class="pill" data-corners="clipped">Clipped</div>
       </div>
     </div>
 
@@ -401,7 +417,8 @@ const PRESETS = {
     overbar: true,         // green band across the top
     emblem: true,          // arrowhead in the overbar
     groove: false,
-    font: 'np',
+    lettering: 'serif',    // official UniGuide uses the routed serif
+    defaultText: 'CRATER LAKE\nNATIONAL PARK',
     baseColor:   '#6f6256', // gray-brown panel
     letterColor: '#f1ece0', // off-white legend
     overbarColor:'#1f3a2a', // NPS dark green
@@ -411,11 +428,12 @@ const PRESETS = {
   },
   'nps-plank': {
     label: 'NPS Plank',
-    shape: 'plank',        // chamfered carved-wood entrance plank
+    shape: 'plank',        // carved-wood entrance plank
     overbar: false,
     emblem: true,          // arrowhead above the text
     groove: true,
-    font: 'np',
+    lettering: 'serif',
+    defaultText: 'YOSEMITE\nNATIONAL PARK',
     baseColor:   '#4a3322', // weathered wood brown
     letterColor: '#e9dcbd', // routed cream
     emblemBrown: '#6e4a1e',
@@ -426,9 +444,10 @@ const PRESETS = {
     label: 'USFS Routed',
     shape: 'plank',
     overbar: false,
-    emblem: false,         // forest script asset comes later, not the arrowhead
+    emblem: false,
     groove: true,
-    font: 'hw',
+    lettering: 'script',   // the classic flowing "National Forest" script
+    defaultText: 'Willamette\nNational Forest',
     baseColor:   '#3e2b1c', // FHWA recreation brown
     letterColor: '#ffffff'  // white routed legend
   }
@@ -437,6 +456,8 @@ const PRESETS = {
 const state = {
   preset: 'nps-panel',
   depth: 'recessed',
+  lettering: 'serif',
+  corners: 'rounded',
   relief: 2.4,
   thickness: 10,
   width: 300,
@@ -445,8 +466,9 @@ const state = {
   text: document.getElementById('signText').value
 };
 
-let npFont = null;     // opentype.js — "National Park" (NPS presets)
-let hwFont = null;     // condensed sans stand-in (USFS preset)
+let npFont = null;     // opentype.js — "National Park" routed serif (NPS presets)
+let hwFont = null;     // condensed sans stand-in (USFS block style)
+let scriptFont = null; // "Vibur" — closest free match to the flowing National Forest script
 
 /* =========================================================
    UI WIRING
@@ -456,12 +478,39 @@ document.querySelectorAll('#presetPills .pill').forEach(el=>{
     document.querySelectorAll('#presetPills .pill').forEach(p=>p.classList.remove('active'));
     el.classList.add('active');
     state.preset = el.dataset.preset;
-    // adopt the preset's spec-accurate default colors
     const cfg = PRESETS[state.preset];
     state.baseColor = cfg.baseColor;
     state.letterColor = cfg.letterColor;
+    state.lettering = cfg.lettering;
+    state.text = cfg.defaultText;
+    document.getElementById('signText').value = cfg.defaultText;
     syncSwatchHighlights();
+    syncLetteringPills();
     updateHud();
+    rebuildSign();
+  });
+});
+
+function syncLetteringPills(){
+  document.querySelectorAll('#letteringPills .pill').forEach(p=>{
+    p.classList.toggle('active', p.dataset.lettering === state.lettering);
+  });
+}
+
+document.querySelectorAll('#letteringPills .pill').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    state.lettering = el.dataset.lettering;
+    syncLetteringPills();
+    updateHud();
+    rebuildSign();
+  });
+});
+
+document.querySelectorAll('#cornerPills .pill').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    document.querySelectorAll('#cornerPills .pill').forEach(p=>p.classList.remove('active'));
+    el.classList.add('active');
+    state.corners = el.dataset.corners;
     rebuildSign();
   });
 });
@@ -532,8 +581,8 @@ document.querySelectorAll('#letterSwatches .swatch').forEach(el=>{
 
 function updateHud(){
   const presetName = PRESETS[state.preset].label;
-  const depthName = state.depth.charAt(0).toUpperCase()+state.depth.slice(1);
-  document.getElementById('hudPresetName').textContent = `${presetName} — ${depthName}`;
+  const letterName = state.lettering === 'script' ? 'Script' : 'Serif';
+  document.getElementById('hudPresetName').textContent = `${presetName} — ${letterName}`;
 }
 
 /* =========================================================
@@ -547,7 +596,8 @@ const FONT_URLS = {
   // the default master, which doesn't match the named weight. These are
   // pre-resolved static woff files instead, which opentype.js parses correctly.
   nps: 'https://cdn.jsdelivr.net/fontsource/fonts/national-park@latest/latin-700-normal.woff',
-  hwy: 'https://cdn.jsdelivr.net/fontsource/fonts/oswald@latest/latin-600-normal.woff' // condensed sans stand-in until Highway Gothic asset is sourced
+  hwy: 'https://cdn.jsdelivr.net/fontsource/fonts/oswald@latest/latin-600-normal.woff', // condensed sans stand-in until Highway Gothic asset is sourced
+  script: 'https://cdn.jsdelivr.net/fontsource/fonts/vibur@latest/latin-400-normal.woff' // closest free match to the flowing National Forest script
 };
 
 function loadFont(url){
@@ -562,8 +612,10 @@ async function initFonts(){
   try{
     document.getElementById('loadingMsg').textContent = 'Fetching National Park typeface…';
     npFont = await loadFont(FONT_URLS.nps);
-    document.getElementById('loadingMsg').textContent = 'Fetching Highway Gothic stand-in…';
+    document.getElementById('loadingMsg').textContent = 'Fetching block typeface…';
     hwFont = await loadFont(FONT_URLS.hwy);
+    document.getElementById('loadingMsg').textContent = 'Fetching National Forest script…';
+    scriptFont = await loadFont(FONT_URLS.script);
     document.getElementById('loadingMsg').textContent = 'Ready';
     document.getElementById('exportBtn').disabled = false;
     document.getElementById('exportBtn').textContent = 'Export 3MF';
@@ -677,7 +729,9 @@ function opentypePathToShapes(otPath){
     (signedArea(pts) > 0 ? outers : holes).push(pts);
   });
 
-  // assign each hole to the outer contour that contains it
+  // assign each hole to the single smallest outer contour that contains it.
+  // (Overlapping script glyphs can otherwise see a counter land inside two
+  // outlines; attaching it to both corrupts the extrusion.)
   function pointInPoly(pt, poly){
     let inside = false;
     for (let i=0, j=poly.length-1; i<poly.length; j=i++){
@@ -687,23 +741,28 @@ function opentypePathToShapes(otPath){
     }
     return inside;
   }
+  function bboxArea(pts){
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    pts.forEach(p=>{ minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y); });
+    return (maxX-minX)*(maxY-minY);
+  }
 
-  const shapes = outers.map(outerPts=>{
-    const shape = new THREE.Shape(outerPts);
-    holes.forEach(holePts=>{
-      if (pointInPoly(holePts[0], outerPts)){
-        shape.holes.push(new THREE.Path(holePts));
-      }
+  const shapes = outers.map(pts=>({ shape: new THREE.Shape(pts), pts, area: bboxArea(pts) }));
+  holes.forEach(holePts=>{
+    let best = null;
+    shapes.forEach(o=>{
+      if (pointInPoly(holePts[0], o.pts) && (!best || o.area < best.area)) best = o;
     });
-    return shape;
+    if (best) best.shape.holes.push(new THREE.Path(holePts));
   });
 
-  return shapes;
+  return shapes.map(o=>o.shape);
 }
 
 function textToShapes(font, text, fontSize){
   const lines = text.split('\n');
-  const lineHeight = fontSize * 1.25;
+  // the flowing script has tall ascenders/descenders and needs more leading
+  const lineHeight = fontSize * (state.lettering === 'script' ? 1.5 : 1.25);
   const allShapeGroups = []; // one group of shapes per line
 
   lines.forEach(line=>{
@@ -733,8 +792,12 @@ function buildRectShape(width, height, r){
   return s;
 }
 
-// Carved entrance plank: top two corners clipped at an angle.
+// Carved entrance plank. Classic entrance signs are rounded rectangles;
+// some trailhead/banner signs clip the top corners. Controlled by state.corners.
 function buildPlankShape(width, height){
+  if (state.corners === 'rounded'){
+    return buildRectShape(width, height, Math.min(height, width)*0.14);
+  }
   const hw = width/2, hh = height/2;
   const chamfer = Math.min(height * 0.16, width * 0.08);
   const s = new THREE.Shape();
@@ -754,7 +817,13 @@ function buildPanelShape(width, height){
     : buildPlankShape(width, height);
 }
 
+// Border groove follows the same silhouette, inset from the edge.
 function buildBorderGroovePath(width, height, inset){
+  if (state.corners === 'rounded' || PRESETS[state.preset].shape === 'rect'){
+    const r = Math.max(Math.min(height, width)*0.14 - inset, 4);
+    const shp = buildRectShape(width - inset*2, height - inset*2, r);
+    return new THREE.Path(shp.getPoints());
+  }
   const hw = width/2 - inset, hh = height/2 - inset;
   const chamfer = Math.max(Math.min(height * 0.16, width * 0.08) - inset*1.4, 4);
   const path = new THREE.Path();
@@ -828,11 +897,19 @@ function clearSign(){
 }
 
 function rebuildSign(){
-  if (!npFont || !hwFont) return;
+  if (!npFont || !hwFont || !scriptFont) return;
   clearSign();
 
   const cfg = PRESETS[state.preset];
-  const font = cfg.font === 'np' ? npFont : hwFont;
+  // Font is driven by the lettering style: the flowing script (Vibur) when
+  // selected, otherwise the routed National Park serif for NPS presets or the
+  // block face for USFS.
+  let font;
+  if (state.lettering === 'script'){
+    font = scriptFont;
+  } else {
+    font = state.preset === 'usfs' ? hwFont : npFont;
+  }
   const fontSize = 60;
   const { allShapeGroups, lineHeight } = textToShapes(font, state.text || ' ', fontSize);
 
