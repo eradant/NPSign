@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Routed — Trail Sign Generator</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=National+Park:wght@200;300;400;500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<style>
+  :root{
+    --bark:        #2b2118;
+    --bark-deep:   #1c150f;
+    --panel-brown: #4a3322;
+    --panel-brown-light: #5c4129;
+    --routed-cream:#e9dcbd;
+    --routed-gold: #c4a35a;
+    --fs-green:    #3f5436;
+    --rust:        #a35a3a;
+    --chrome-line: rgba(233,220,189,0.12);
+    --text-dim:    rgba(233,220,189,0.55);
+
+    --font-display: 'National Park', serif;
+    --font-body:    'Public Sans', sans-serif;
+    --font-mono:    'JetBrains Mono', monospace;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+
+  html,body{
+    height:100%;
+    background: var(--bark-deep);
+    color: var(--routed-cream);
+    font-family: var(--font-body);
+    overflow:hidden;
+  }
+
+  body{
+    background-image:
+      radial-gradient(ellipse at 20% -10%, rgba(196,163,90,0.07), transparent 50%),
+      repeating-linear-gradient(180deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 3px);
+  }
+
+  .app{
+    display:grid;
+    grid-template-columns: 380px 1fr;
+    height:100vh;
+  }
+
+  /* ---------- LEFT: control panel ---------- */
+  .panel{
+    background: linear-gradient(180deg, var(--bark) 0%, var(--bark-deep) 100%);
+    border-right: 1px solid var(--chrome-line);
+    overflow-y: auto;
+    padding: 28px 26px 60px;
+  }
+
+  .brand{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    margin-bottom: 30px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--chrome-line);
+  }
+  .brand-mark{
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 28px;
+    letter-spacing: 0.5px;
+    color: var(--routed-cream);
+  }
+  .brand-sub{
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: var(--routed-gold);
+  }
+
+  .section{ margin-bottom: 30px; }
+  .section-title{
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .section-title::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background: var(--chrome-line);
+  }
+
+  label.field{
+    display:block;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  input[type="text"], textarea, select{
+    width:100%;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--chrome-line);
+    border-radius: 3px;
+    color: var(--routed-cream);
+    font-family: var(--font-body);
+    font-size: 14px;
+    padding: 10px 11px;
+    margin-bottom: 16px;
+    outline:none;
+    transition: border-color 0.15s ease;
+  }
+  input[type="text"]:focus, textarea:focus, select:focus{
+    border-color: var(--routed-gold);
+  }
+  textarea{ resize: vertical; min-height: 56px; font-family: var(--font-display); font-size:17px; }
+
+  /* preset toggle pills */
+  .pillrow{
+    display:flex;
+    gap:8px;
+    margin-bottom:16px;
+  }
+  .pill{
+    flex:1;
+    text-align:center;
+    padding: 10px 8px;
+    border: 1px solid var(--chrome-line);
+    border-radius: 3px;
+    background: rgba(0,0,0,0.2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    cursor:pointer;
+    color: var(--text-dim);
+    transition: all 0.15s ease;
+  }
+  .pill:hover{ border-color: rgba(196,163,90,0.4); }
+  .pill.active{
+    background: var(--routed-gold);
+    border-color: var(--routed-gold);
+    color: var(--bark-deep);
+    font-weight: 600;
+  }
+
+  /* depth mode: visual cross-section selector */
+  .depthrow{ display:flex; gap:10px; margin-bottom: 6px; }
+  .depth-card{
+    flex:1;
+    border: 1px solid var(--chrome-line);
+    border-radius: 4px;
+    padding: 10px 6px 8px;
+    text-align:center;
+    cursor:pointer;
+    background: rgba(0,0,0,0.18);
+    transition: all 0.15s ease;
+  }
+  .depth-card:hover{ border-color: rgba(196,163,90,0.4); }
+  .depth-card.active{ border-color: var(--routed-gold); background: rgba(196,163,90,0.1); }
+  .depth-card svg{ width:48px; height:28px; display:block; margin: 0 auto 6px; }
+  .depth-card .lbl{
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .depth-card.active .lbl{ color: var(--routed-gold); }
+
+  .slider-row{ margin-bottom: 16px; }
+  .slider-label{
+    display:flex;
+    justify-content: space-between;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .slider-label .val{ font-family: var(--font-mono); color: var(--routed-cream); }
+  input[type="range"]{
+    width:100%;
+    accent-color: var(--routed-gold);
+    height: 4px;
+  }
+
+  .swatchrow{ display:flex; gap:8px; margin-bottom:16px; }
+  .swatch{
+    width:30px; height:30px;
+    border-radius:50%;
+    border:2px solid transparent;
+    cursor:pointer;
+    position:relative;
+  }
+  .swatch.active{ border-color: var(--routed-cream); }
+  .swatch.active::after{
+    content:"✓";
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; color:#1c150f; font-weight:bold;
+  }
+
+  .export-btn{
+    width:100%;
+    padding: 14px;
+    background: var(--routed-gold);
+    border:none;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--bark-deep);
+    cursor:pointer;
+    margin-top: 8px;
+    transition: transform 0.1s ease, box-shadow 0.15s ease;
+  }
+  .export-btn:hover{ box-shadow: 0 0 0 3px rgba(196,163,90,0.18); }
+  .export-btn:active{ transform: scale(0.99); }
+  .export-btn:disabled{ opacity:0.4; cursor:not-allowed; box-shadow:none; }
+
+  .spec-readout{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.9;
+    color: var(--text-dim);
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--chrome-line);
+  }
+  .spec-readout .row{ display:flex; justify-content:space-between; }
+  .spec-readout .row span:last-child{ color: var(--routed-cream); }
+
+  /* ---------- RIGHT: 3D viewport ---------- */
+  .viewport{
+    position: relative;
+    background:
+      radial-gradient(ellipse at 50% 30%, #3a2c1f 0%, var(--bark-deep) 75%);
+  }
+  #canvas3d{ width:100%; height:100%; display:block; }
+
+  .viewport-hud{
+    position:absolute;
+    top:24px; left:28px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .viewport-hud .big{
+    font-family: var(--font-display);
+    font-size: 15px;
+    text-transform: none;
+    letter-spacing: 0.3px;
+    color: var(--routed-cream);
+    margin-top:4px;
+  }
+
+  .loading-msg{
+    position:absolute;
+    bottom:26px; left:28px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--routed-gold);
+    letter-spacing: 0.5px;
+  }
+
+  /* scrollbar */
+  .panel::-webkit-scrollbar{ width:7px; }
+  .panel::-webkit-scrollbar-track{ background:transparent; }
+  .panel::-webkit-scrollbar-thumb{ background: var(--panel-brown-light); border-radius:4px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ============ CONTROL PANEL ============ -->
+  <div class="panel">
+    <div class="brand">
+      <div class="brand-mark">Routed</div>
+      <div class="brand-sub">Trail &amp; Park Sign Generator</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Sign Authority</div>
+      <div class="pillrow" id="presetPills">
+        <div class="pill active" data-preset="nps">NPS Arrowhead</div>
+        <div class="pill" data-preset="usfs">USFS Routed</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Lettering</div>
+      <label class="field">Sign text</label>
+      <textarea id="signText" maxlength="60">CRATER LAKE
+NATIONAL PARK</textarea>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Letter Profile</div>
+      <div class="depthrow" id="depthCards">
+        <div class="depth-card active" data-depth="recessed">
+          <svg viewBox="0 0 48 28"><path d="M2 10 L18 10 L18 18 L30 18 L30 10 L46 10" stroke="#c4a35a" stroke-width="2" fill="none"/></svg>
+          <div class="lbl">Recessed</div>
+        </div>
+        <div class="depth-card" data-depth="flush">
+          <svg viewBox="0 0 48 28"><path d="M2 14 L46 14" stroke="#c4a35a" stroke-width="2" fill="none"/></svg>
+          <div class="lbl">Flush</div>
+        </div>
+        <div class="depth-card" data-depth="raised">
+          <svg viewBox="0 0 48 28"><path d="M2 18 L18 18 L18 10 L30 10 L30 18 L46 18" stroke="#c4a35a" stroke-width="2" fill="none"/></svg>
+          <div class="lbl">Raised</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Depth &amp; Scale</div>
+      <div class="slider-row">
+        <div class="slider-label"><span>Letter relief</span><span class="val" id="reliefVal">2.4mm</span></div>
+        <input type="range" id="reliefSlider" min="1" max="6" step="0.2" value="2.4">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label"><span>Panel thickness</span><span class="val" id="thickVal">10mm</span></div>
+        <input type="range" id="thickSlider" min="6" max="20" step="1" value="10">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label"><span>Sign width</span><span class="val" id="widthVal">300mm</span></div>
+        <input type="range" id="widthSlider" min="120" max="500" step="10" value="300">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Filament Colors</div>
+      <label class="field">Panel base</label>
+      <div class="swatchrow" id="baseSwatches">
+        <div class="swatch active" style="background:#4a3322" data-color="#4a3322"></div>
+        <div class="swatch" style="background:#3f5436" data-color="#3f5436"></div>
+        <div class="swatch" style="background:#1c150f" data-color="#1c150f"></div>
+        <div class="swatch" style="background:#5c4129" data-color="#5c4129"></div>
+      </div>
+      <label class="field">Letter fill</label>
+      <div class="swatchrow" id="letterSwatches">
+        <div class="swatch active" style="background:#e9dcbd" data-color="#e9dcbd"></div>
+        <div class="swatch" style="background:#c4a35a" data-color="#c4a35a"></div>
+        <div class="swatch" style="background:#f4f1ea" data-color="#f4f1ea"></div>
+        <div class="swatch" style="background:#a35a3a" data-color="#a35a3a"></div>
+      </div>
+    </div>
+
+    <button class="export-btn" id="exportBtn" disabled>Loading typeface…</button>
+
+    <div class="spec-readout">
+      <div class="row"><span>Colors used</span><span>2</span></div>
+      <div class="row"><span>Min print depth</span><span>0.8mm floor</span></div>
+      <div class="row"><span>Est. plate fit</span><span id="plateFit">single plate</span></div>
+    </div>
+  </div>
+
+  <!-- ============ VIEWPORT ============ -->
+  <div class="viewport">
+    <canvas id="canvas3d"></canvas>
+    <div class="viewport-hud">
+      <div>Live Preview</div>
+      <div class="big" id="hudPresetName">NPS Arrowhead — Recessed</div>
+    </div>
+    <div class="loading-msg" id="loadingMsg">Setting the router bit…</div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   STATE
+========================================================= */
+const state = {
+  preset: 'nps',
+  depth: 'recessed',
+  relief: 2.4,
+  thickness: 10,
+  width: 300,
+  baseColor: '#4a3322',
+  letterColor: '#e9dcbd',
+  text: document.getElementById('signText').value
+};
+
+let npFont = null;     // opentype.js Font object — "National Park" (NPS preset)
+let hwFont = null;     // Highway Gothic stand-in (USFS preset)
+
+/* =========================================================
+   UI WIRING
+========================================================= */
+document.querySelectorAll('#presetPills .pill').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    document.querySelectorAll('#presetPills .pill').forEach(p=>p.classList.remove('active'));
+    el.classList.add('active');
+    state.preset = el.dataset.preset;
+    updateHud();
+    rebuildSign();
+  });
+});
+
+document.querySelectorAll('#depthCards .depth-card').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    document.querySelectorAll('#depthCards .depth-card').forEach(p=>p.classList.remove('active'));
+    el.classList.add('active');
+    state.depth = el.dataset.depth;
+    updateHud();
+    rebuildSign();
+  });
+});
+
+document.getElementById('signText').addEventListener('input', (e)=>{
+  state.text = e.target.value;
+  rebuildSign();
+});
+
+const reliefSlider = document.getElementById('reliefSlider');
+reliefSlider.addEventListener('input', e=>{
+  state.relief = parseFloat(e.target.value);
+  document.getElementById('reliefVal').textContent = state.relief.toFixed(1)+'mm';
+  rebuildSign();
+});
+
+const thickSlider = document.getElementById('thickSlider');
+thickSlider.addEventListener('input', e=>{
+  state.thickness = parseFloat(e.target.value);
+  document.getElementById('thickVal').textContent = state.thickness+'mm';
+  rebuildSign();
+});
+
+const widthSlider = document.getElementById('widthSlider');
+widthSlider.addEventListener('input', e=>{
+  state.width = parseFloat(e.target.value);
+  document.getElementById('widthVal').textContent = state.width+'mm';
+  rebuildSign();
+});
+
+document.querySelectorAll('#baseSwatches .swatch').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    document.querySelectorAll('#baseSwatches .swatch').forEach(s=>s.classList.remove('active'));
+    el.classList.add('active');
+    state.baseColor = el.dataset.color;
+    rebuildSign();
+  });
+});
+document.querySelectorAll('#letterSwatches .swatch').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    document.querySelectorAll('#letterSwatches .swatch').forEach(s=>s.classList.remove('active'));
+    el.classList.add('active');
+    state.letterColor = el.dataset.color;
+    rebuildSign();
+  });
+});
+
+function updateHud(){
+  const presetName = state.preset === 'nps' ? 'NPS Arrowhead' : 'USFS Routed';
+  const depthName = state.depth.charAt(0).toUpperCase()+state.depth.slice(1);
+  document.getElementById('hudPresetName').textContent = `${presetName} — ${depthName}`;
+}
+
+/* =========================================================
+   FONT LOADING (opentype.js — needed for true extrudable
+   glyph outlines, not just CSS rendering)
+========================================================= */
+const FONT_URLS = {
+  // Static (non-variable) instances via Fontsource's CDN. The Google Fonts
+  // source repo only ships National Park as a single variable TTF, and
+  // opentype.js doesn't apply variable-font (gvar) deltas — it was rendering
+  // the default master, which doesn't match the named weight. These are
+  // pre-resolved static woff files instead, which opentype.js parses correctly.
+  nps: 'https://cdn.jsdelivr.net/fontsource/fonts/national-park@latest/latin-700-normal.woff',
+  hwy: 'https://cdn.jsdelivr.net/fontsource/fonts/oswald@latest/latin-600-normal.woff' // condensed sans stand-in until Highway Gothic asset is sourced
+};
+
+function loadFont(url){
+  return new Promise((resolve, reject)=>{
+    opentype.load(url, (err, font)=>{
+      if (err) reject(err); else resolve(font);
+    });
+  });
+}
+
+async function initFonts(){
+  try{
+    document.getElementById('loadingMsg').textContent = 'Fetching National Park typeface…';
+    npFont = await loadFont(FONT_URLS.nps);
+    document.getElementById('loadingMsg').textContent = 'Fetching Highway Gothic stand-in…';
+    hwFont = await loadFont(FONT_URLS.hwy);
+    document.getElementById('loadingMsg').textContent = 'Ready';
+    document.getElementById('exportBtn').disabled = false;
+    document.getElementById('exportBtn').textContent = 'Export 3MF';
+    rebuildSign();
+  }catch(e){
+    document.getElementById('loadingMsg').textContent = 'Font load failed — check network/CDN access';
+    console.error(e);
+  }
+}
+
+/* =========================================================
+   THREE.JS SCENE
+========================================================= */
+let scene, camera, renderer, signGroup;
+
+function initScene(){
+  const canvas = document.getElementById('canvas3d');
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(38, canvas.clientWidth/canvas.clientHeight, 1, 5000);
+  camera.position.set(0, 60, 420);
+
+  renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+  renderer.setPixelRatio(window.devicePixelRatio);
+  resizeRenderer();
+
+  const key = new THREE.DirectionalLight(0xfff1d8, 1.1);
+  key.position.set(120, 220, 260);
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0x8899aa, 0.35);
+  fill.position.set(-200, 80, -150);
+  scene.add(fill);
+  scene.add(new THREE.AmbientLight(0x3a3026, 0.7));
+
+  signGroup = new THREE.Group();
+  scene.add(signGroup);
+
+  window.addEventListener('resize', resizeRenderer);
+  animate();
+}
+
+function resizeRenderer(){
+  const canvas = document.getElementById('canvas3d');
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+}
+
+let t = 0;
+function animate(){
+  requestAnimationFrame(animate);
+  t += 0.0035;
+  if (signGroup) signGroup.rotation.y = Math.sin(t)*0.18;
+  renderer.render(scene, camera);
+}
+
+/* =========================================================
+   SIGN GEOMETRY BUILD
+   Converts glyph paths -> THREE.Shape -> extruded mesh,
+   per selected depth mode.
+========================================================= */
+// Converts an opentype.js Path directly into THREE.Shape objects, handling
+// glyph holes (e.g. the counters in "O", "A", "P") via even-odd containment
+// rather than relying on a separate SVG-parsing addon.
+function opentypePathToShapes(otPath){
+  const subpaths = [];
+  let current = null;
+
+  otPath.commands.forEach(cmd=>{
+    if (cmd.type === 'M'){
+      current = [ new THREE.Vector2(cmd.x, cmd.y) ];
+      subpaths.push(current);
+    } else if (cmd.type === 'L'){
+      current.push(new THREE.Vector2(cmd.x, cmd.y));
+    } else if (cmd.type === 'C'){
+      const last = current[current.length-1];
+      const curve = new THREE.CubicBezierCurve(
+        last,
+        new THREE.Vector2(cmd.x1, cmd.y1),
+        new THREE.Vector2(cmd.x2, cmd.y2),
+        new THREE.Vector2(cmd.x, cmd.y)
+      );
+      current.push(...curve.getPoints(8).slice(1));
+    } else if (cmd.type === 'Q'){
+      const last = current[current.length-1];
+      const curve = new THREE.QuadraticBezierCurve(
+        last,
+        new THREE.Vector2(cmd.x1, cmd.y1),
+        new THREE.Vector2(cmd.x, cmd.y)
+      );
+      current.push(...curve.getPoints(8).slice(1));
+    } else if (cmd.type === 'Z'){
+      // subpath closed implicitly
+    }
+  });
+
+  // signed area to classify outer contours (CW/CCW) vs holes
+  function signedArea(pts){
+    let a = 0;
+    for (let i=0; i<pts.length; i++){
+      const p1 = pts[i], p2 = pts[(i+1)%pts.length];
+      a += p1.x*p2.y - p2.x*p1.y;
+    }
+    return a/2;
+  }
+
+  const outers = [], holes = [];
+  subpaths.forEach(pts=>{
+    if (pts.length < 3) return;
+    (signedArea(pts) > 0 ? outers : holes).push(pts);
+  });
+
+  // assign each hole to the outer contour that contains it
+  function pointInPoly(pt, poly){
+    let inside = false;
+    for (let i=0, j=poly.length-1; i<poly.length; j=i++){
+      const xi=poly[i].x, yi=poly[i].y, xj=poly[j].x, yj=poly[j].y;
+      const intersect = ((yi>pt.y)!==(yj>pt.y)) && (pt.x < (xj-xi)*(pt.y-yi)/(yj-yi)+xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  const shapes = outers.map(outerPts=>{
+    const shape = new THREE.Shape(outerPts);
+    holes.forEach(holePts=>{
+      if (pointInPoly(holePts[0], outerPts)){
+        shape.holes.push(new THREE.Path(holePts));
+      }
+    });
+    return shape;
+  });
+
+  return shapes;
+}
+
+function textToShapes(font, text, fontSize){
+  const lines = text.split('\n');
+  const lineHeight = fontSize * 1.25;
+  const allShapeGroups = []; // one group of shapes per line
+
+  lines.forEach(line=>{
+    if (!line.trim()) { allShapeGroups.push(null); return; }
+    const path = font.getPath(line, 0, 0, fontSize);
+    allShapeGroups.push(opentypePathToShapes(path));
+  });
+
+  return { allShapeGroups, lineHeight };
+}
+
+// Real NPS/USFS routed signs are not plain rectangles: the top two corners
+// are clipped at an angle, and there's almost always a routed border groove
+// set in from the edge. This builds that profile as a THREE.Shape.
+function buildPanelShape(width, height){
+  const hw = width/2, hh = height/2;
+  const chamfer = Math.min(height * 0.16, width * 0.08); // corner clip size
+
+  const shape = new THREE.Shape();
+  shape.moveTo(-hw, -hh);                      // bottom-left
+  shape.lineTo( hw, -hh);                      // bottom-right
+  shape.lineTo( hw,  hh - chamfer);             // up right side
+  shape.lineTo( hw - chamfer, hh);              // clipped top-right corner
+  shape.lineTo(-hw + chamfer, hh);              // across top
+  shape.lineTo(-hw, hh - chamfer);              // clipped top-left corner
+  shape.closePath();                            // down left side
+
+  return shape;
+}
+
+function buildBorderGroovePath(width, height, inset){
+  const hw = width/2 - inset, hh = height/2 - inset;
+  const chamfer = Math.max(Math.min(height * 0.16, width * 0.08) - inset*1.4, 4);
+
+  const path = new THREE.Path();
+  path.moveTo(-hw, -hh);
+  path.lineTo( hw, -hh);
+  path.lineTo( hw,  hh - chamfer);
+  path.lineTo( hw - chamfer, hh);
+  path.lineTo(-hw + chamfer, hh);
+  path.lineTo(-hw, hh - chamfer);
+  path.closePath();
+  return path;
+}
+
+function clearSign(){
+  while(signGroup.children.length){
+    const c = signGroup.children.pop();
+    c.geometry && c.geometry.dispose();
+    c.material && c.material.dispose();
+  }
+}
+
+function rebuildSign(){
+  if (!npFont || !hwFont) return;
+  clearSign();
+
+  const font = state.preset === 'nps' ? npFont : hwFont;
+  const fontSize = 60;
+  const { allShapeGroups, lineHeight } = textToShapes(font, state.text || ' ', fontSize);
+
+  const baseMat = new THREE.MeshStandardMaterial({ color: state.baseColor, roughness:0.85, metalness:0.05 });
+  const letterMat = new THREE.MeshStandardMaterial({ color: state.letterColor, roughness:0.7, metalness:0.05 });
+
+  // panel sizing derived from text bounds
+  let maxLineWidth = 0;
+  allShapeGroups.forEach(shapes=>{
+    if (!shapes) return;
+    const box = new THREE.Box2();
+    shapes.forEach(sh=>{
+      sh.getPoints().forEach(p=> box.expandByPoint(p));
+    });
+    if (!box.isEmpty()) maxLineWidth = Math.max(maxLineWidth, box.max.x - box.min.x);
+  });
+  const numLines = allShapeGroups.length;
+  const textBlockHeight = numLines * lineHeight;
+
+  const scaleToFit = (state.width * 0.78) / Math.max(maxLineWidth, 1);
+  const panelWidth = state.width;
+  const panelHeight = Math.max(textBlockHeight * scaleToFit + 70, panelWidth*0.32);
+  const panelDepth = state.thickness;
+  const relief = state.relief;
+
+  // --- base panel: chamfered plank profile, not a plain box ---
+  const panelShape = buildPanelShape(panelWidth, panelHeight);
+  const panelGeo = new THREE.ExtrudeGeometry(panelShape, { depth: panelDepth, bevelEnabled:false });
+  panelGeo.translate(0, 0, -panelDepth/2); // center on z, matching the rest of the scene's coordinate space
+  const panelMesh = new THREE.Mesh(panelGeo, baseMat);
+  signGroup.add(panelMesh);
+
+  // --- routed border groove (thin recessed ring set in from the edge) ---
+  const grooveInset = Math.max(panelWidth, panelHeight) * 0.045;
+  const grooveWidth = Math.max(panelWidth, panelHeight) * 0.012;
+  const grooveOuter = buildBorderGroovePath(panelWidth, panelHeight, grooveInset);
+  const grooveInner = buildBorderGroovePath(panelWidth, panelHeight, grooveInset + grooveWidth);
+  const grooveShape = new THREE.Shape(grooveOuter.getPoints());
+  grooveShape.holes.push(new THREE.Path(grooveInner.getPoints()));
+  const grooveDepth = Math.min(relief * 0.6, 1.4);
+  const grooveGeo = new THREE.ExtrudeGeometry(grooveShape, { depth: grooveDepth, bevelEnabled:false });
+  const grooveMat = new THREE.MeshStandardMaterial({ color: state.baseColor, roughness:0.95, metalness:0 });
+  grooveMat.color.multiplyScalar(0.65); // subtle shading so the groove reads as carved, not just flat
+  const grooveMesh = new THREE.Mesh(grooveGeo, grooveMat);
+  grooveMesh.position.z = panelDepth/2 - grooveDepth;
+  signGroup.add(grooveMesh);
+
+  // --- letters ---
+  const totalTextHeight = numLines * lineHeight * scaleToFit;
+  let yCursor = totalTextHeight/2 - (lineHeight*scaleToFit)/2;
+
+  allShapeGroups.forEach(shapes=>{
+    if (!shapes){ yCursor -= lineHeight*scaleToFit; return; }
+
+    const box = new THREE.Box2();
+    shapes.forEach(sh=> sh.getPoints().forEach(p=> box.expandByPoint(p)));
+    const lineWidth = (box.max.x - box.min.x) * scaleToFit;
+    const xOffset = -lineWidth/2 - box.min.x*scaleToFit;
+
+    let extrudeDepth, zPos, mat;
+    if (state.depth === 'raised'){
+      extrudeDepth = relief; zPos = panelDepth/2; mat = letterMat;
+    } else if (state.depth === 'recessed'){
+      extrudeDepth = relief; zPos = panelDepth/2 - relief; mat = letterMat;
+    } else { // flush
+      extrudeDepth = panelDepth*0.5; zPos = 0; mat = letterMat;
+    }
+
+    shapes.forEach(shape=>{
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: extrudeDepth, bevelEnabled:false });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.scale.set(scaleToFit, -scaleToFit, 1); // flip Y: font space is Y-down
+      mesh.position.set(xOffset, yCursor, zPos);
+      signGroup.add(mesh);
+    });
+
+    yCursor -= lineHeight*scaleToFit;
+  });
+
+  // for "recessed", carve a literal pocket too (visual only at this stage —
+  // true boolean subtraction happens at export time, not in the live preview)
+  if (state.depth === 'recessed'){
+    panelMesh.position.z = -relief/2; // slight stagger reads as a true pocket from preview angle
+  } else {
+    panelMesh.position.z = 0;
+  }
+
+  document.getElementById('plateFit').textContent = panelWidth <= 256 && panelHeight <= 256 ? 'single plate' : 'exceeds 256×256 — tiling needed';
+}
+
+/* =========================================================
+   INIT
+========================================================= */
+initScene();
+initFonts();
+</script>
+</body>
+</html>
