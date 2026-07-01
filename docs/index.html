@@ -337,10 +337,19 @@ NATIONAL PARK</textarea>
     </div>
 
     <div class="section">
-      <div class="section-title">Corners</div>
-      <div class="pillrow" id="cornerPills">
-        <div class="pill active" data-corners="rounded">Rounded</div>
-        <div class="pill" data-corners="clipped">Clipped</div>
+      <div class="section-title">Shape</div>
+      <div class="pillrow" id="shapePills">
+        <div class="pill active" data-shape="guidon">Guidon</div>
+        <div class="pill" data-shape="rounded">Rounded</div>
+        <div class="pill" data-shape="clipped">Clipped</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Tone</div>
+      <div class="pillrow" id="tonePills">
+        <div class="pill active" data-tone="single">Single</div>
+        <div class="pill" data-tone="dual">Dual</div>
       </div>
     </div>
 
@@ -418,6 +427,8 @@ const PRESETS = {
     emblem: true,          // arrowhead in the overbar
     groove: false,
     lettering: 'serif',    // official UniGuide uses the routed serif
+    shapeStyle: 'rounded',
+    tone: 'single',
     defaultText: 'CRATER LAKE\nNATIONAL PARK',
     baseColor:   '#6f6256', // gray-brown panel
     letterColor: '#f1ece0', // off-white legend
@@ -433,9 +444,12 @@ const PRESETS = {
     emblem: true,          // arrowhead above the text
     groove: true,
     lettering: 'serif',
+    shapeStyle: 'rounded',
+    tone: 'single',
     defaultText: 'YOSEMITE\nNATIONAL PARK',
     baseColor:   '#4a3322', // weathered wood brown
     letterColor: '#e9dcbd', // routed cream
+    toneColor:   '#e7dcc4', // upper band if dual-tone
     emblemBrown: '#6e4a1e',
     emblemGreen: '#2f5135',
     emblemCream: '#e7dcc4'
@@ -445,11 +459,14 @@ const PRESETS = {
     shape: 'plank',
     overbar: false,
     emblem: false,
-    groove: true,
+    groove: false,
     lettering: 'script',   // the classic flowing "National Forest" script
-    defaultText: 'Willamette\nNational Forest',
-    baseColor:   '#3e2b1c', // FHWA recreation brown
-    letterColor: '#ffffff'  // white routed legend
+    shapeStyle: 'guidon',  // the iconic Forest Service trapezoid
+    tone: 'single',
+    defaultText: 'MT. HOOD\nNational Forest',
+    baseColor:   '#4a3528', // FS brown
+    letterColor: '#efe7d0', // cream legend
+    toneColor:   '#efe7d0'  // upper band if dual-tone (cream)
   }
 };
 
@@ -457,7 +474,8 @@ const state = {
   preset: 'nps-panel',
   depth: 'recessed',
   lettering: 'serif',
-  corners: 'rounded',
+  shapeStyle: 'rounded', // guidon | rounded | clipped
+  tone: 'single',        // single | dual
   relief: 2.4,
   thickness: 10,
   width: 300,
@@ -468,7 +486,7 @@ const state = {
 
 let npFont = null;     // opentype.js — "National Park" routed serif (NPS presets)
 let hwFont = null;     // condensed sans stand-in (USFS block style)
-let scriptFont = null; // "Vibur" — closest free match to the flowing National Forest script
+let scriptFont = null; // "Pacifico" — bold rounded brush script approximating the National Forest logotype
 
 /* =========================================================
    UI WIRING
@@ -482,19 +500,27 @@ document.querySelectorAll('#presetPills .pill').forEach(el=>{
     state.baseColor = cfg.baseColor;
     state.letterColor = cfg.letterColor;
     state.lettering = cfg.lettering;
+    state.shapeStyle = cfg.shapeStyle;
+    state.tone = cfg.tone;
     state.text = cfg.defaultText;
     document.getElementById('signText').value = cfg.defaultText;
     syncSwatchHighlights();
     syncLetteringPills();
+    syncPillGroup('shapePills', 'shape', state.shapeStyle);
+    syncPillGroup('tonePills', 'tone', state.tone);
     updateHud();
     rebuildSign();
   });
 });
 
-function syncLetteringPills(){
-  document.querySelectorAll('#letteringPills .pill').forEach(p=>{
-    p.classList.toggle('active', p.dataset.lettering === state.lettering);
+function syncPillGroup(groupId, attr, value){
+  document.querySelectorAll(`#${groupId} .pill`).forEach(p=>{
+    p.classList.toggle('active', p.dataset[attr] === value);
   });
+}
+
+function syncLetteringPills(){
+  syncPillGroup('letteringPills', 'lettering', state.lettering);
 }
 
 document.querySelectorAll('#letteringPills .pill').forEach(el=>{
@@ -506,11 +532,18 @@ document.querySelectorAll('#letteringPills .pill').forEach(el=>{
   });
 });
 
-document.querySelectorAll('#cornerPills .pill').forEach(el=>{
+document.querySelectorAll('#shapePills .pill').forEach(el=>{
   el.addEventListener('click', ()=>{
-    document.querySelectorAll('#cornerPills .pill').forEach(p=>p.classList.remove('active'));
-    el.classList.add('active');
-    state.corners = el.dataset.corners;
+    state.shapeStyle = el.dataset.shape;
+    syncPillGroup('shapePills', 'shape', state.shapeStyle);
+    rebuildSign();
+  });
+});
+
+document.querySelectorAll('#tonePills .pill').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    state.tone = el.dataset.tone;
+    syncPillGroup('tonePills', 'tone', state.tone);
     rebuildSign();
   });
 });
@@ -597,7 +630,7 @@ const FONT_URLS = {
   // pre-resolved static woff files instead, which opentype.js parses correctly.
   nps: 'https://cdn.jsdelivr.net/fontsource/fonts/national-park@latest/latin-700-normal.woff',
   hwy: 'https://cdn.jsdelivr.net/fontsource/fonts/oswald@latest/latin-600-normal.woff', // condensed sans stand-in until Highway Gothic asset is sourced
-  script: 'https://cdn.jsdelivr.net/fontsource/fonts/vibur@latest/latin-400-normal.woff' // closest free match to the flowing National Forest script
+  script: 'https://cdn.jsdelivr.net/fontsource/fonts/pacifico@latest/latin-400-normal.woff' // bold rounded brush script — much closer to the National Forest logotype than thin handwriting fonts
 };
 
 function loadFont(url){
@@ -759,22 +792,66 @@ function opentypePathToShapes(otPath){
   return shapes.map(o=>o.shape);
 }
 
-function textToShapes(font, text, fontSize){
+// Decide font + relative size for a given line. On the real signs only the
+// agency phrase ("National Forest" / "National Park") is in script, and it's
+// rendered larger than the place name above it.
+function lineStyle(line){
+  const isAgency = /^\s*national\s+(forest|park)\s*$/i.test(line);
+  const blockFont = state.preset === 'usfs' ? hwFont : npFont;
+  if (state.lettering === 'script' && isAgency){
+    return { font: scriptFont, mult: 1.5, script: true };
+  }
+  return { font: blockFont, mult: 1.0, script: false };
+}
+
+function textToShapes(text, baseFontSize){
   const lines = text.split('\n');
-  // the flowing script has tall ascenders/descenders and needs more leading
-  const lineHeight = fontSize * (state.lettering === 'script' ? 1.5 : 1.25);
-  const allShapeGroups = []; // one group of shapes per line
-
+  const perLine = []; // { shapes, fontSize, script } | null
   lines.forEach(line=>{
-    if (!line.trim()) { allShapeGroups.push(null); return; }
-    const path = font.getPath(line, 0, 0, fontSize);
-    allShapeGroups.push(opentypePathToShapes(path));
+    if (!line.trim()){ perLine.push(null); return; }
+    const sty = lineStyle(line);
+    const fs = baseFontSize * sty.mult;
+    const path = sty.font.getPath(line, 0, 0, fs);
+    perLine.push({ shapes: opentypePathToShapes(path), fontSize: fs, script: sty.script });
   });
-
-  return { allShapeGroups, lineHeight };
+  return perLine;
 }
 
 // ---- panel silhouettes -------------------------------------------------
+// Rounds the corners of an arbitrary polygon (list of {x,y}) with radius r.
+function roundedPolygon(pts, r){
+  const shape = new THREE.Shape();
+  const n = pts.length;
+  for (let i=0;i<n;i++){
+    const curr = pts[i];
+    const prev = pts[(i-1+n)%n];
+    const next = pts[(i+1)%n];
+    const v1x = prev.x-curr.x, v1y = prev.y-curr.y;
+    const v2x = next.x-curr.x, v2y = next.y-curr.y;
+    const l1 = Math.hypot(v1x,v1y), l2 = Math.hypot(v2x,v2y);
+    const rr = Math.min(r, l1/2, l2/2);
+    const p1x = curr.x + v1x/l1*rr, p1y = curr.y + v1y/l1*rr;
+    const p2x = curr.x + v2x/l2*rr, p2y = curr.y + v2y/l2*rr;
+    if (i===0) shape.moveTo(p1x,p1y); else shape.lineTo(p1x,p1y);
+    shape.quadraticCurveTo(curr.x, curr.y, p2x, p2y);
+  }
+  shape.closePath();
+  return shape;
+}
+
+// The classic Forest Service "guidon": an organic rounded trapezoid, wider at
+// the bottom, with a gently sloped top edge and large rounded corners.
+function buildGuidonShape(width, height){
+  const w = width, h = height;
+  const corners = [
+    { x: -0.40*w, y:  0.50*h }, // top-left (highest)
+    { x:  0.44*w, y:  0.40*h }, // top-right — top edge slopes down to the right
+    { x:  0.50*w, y: -0.50*h }, // bottom-right
+    { x: -0.50*w, y: -0.50*h }  // bottom-left
+  ];
+  return roundedPolygon(corners, Math.min(w,h)*0.22);
+}
+
 // Flat NPS panel: rectangle with a small corner radius.
 function buildRectShape(width, height, r){
   const hw = width/2, hh = height/2;
@@ -792,12 +869,11 @@ function buildRectShape(width, height, r){
   return s;
 }
 
-// Carved entrance plank. Classic entrance signs are rounded rectangles;
-// some trailhead/banner signs clip the top corners. Controlled by state.corners.
+// Panel silhouette driven by state.shapeStyle.
 function buildPlankShape(width, height){
-  if (state.corners === 'rounded'){
-    return buildRectShape(width, height, Math.min(height, width)*0.14);
-  }
+  if (state.shapeStyle === 'guidon')  return buildGuidonShape(width, height);
+  if (state.shapeStyle === 'rounded') return buildRectShape(width, height, Math.min(height, width)*0.14);
+  // clipped
   const hw = width/2, hh = height/2;
   const chamfer = Math.min(height * 0.16, width * 0.08);
   const s = new THREE.Shape();
@@ -812,29 +888,40 @@ function buildPlankShape(width, height){
 }
 
 function buildPanelShape(width, height){
+  // NPS flat panel keeps its rectangular spec; everything else follows shapeStyle
   return PRESETS[state.preset].shape === 'rect'
     ? buildRectShape(width, height, height*0.05)
     : buildPlankShape(width, height);
 }
 
-// Border groove follows the same silhouette, inset from the edge.
+// Border groove follows the same silhouette, inset from the edge, by
+// re-deriving the panel shape at a smaller size and taking its outline points.
 function buildBorderGroovePath(width, height, inset){
-  if (state.corners === 'rounded' || PRESETS[state.preset].shape === 'rect'){
-    const r = Math.max(Math.min(height, width)*0.14 - inset, 4);
-    const shp = buildRectShape(width - inset*2, height - inset*2, r);
-    return new THREE.Path(shp.getPoints());
+  const shp = buildPanelShape(width - inset*2, height - inset*2);
+  return new THREE.Path(shp.getPoints(24));
+}
+
+// Sutherland–Hodgman clip of a polygon to the half-plane y >= yLine (keepTop)
+// or y <= yLine. Used to split the panel silhouette for dual-tone signs.
+function clipPolygonHalfPlane(pts, yLine, keepTop){
+  const inside = p => keepTop ? (p.y >= yLine) : (p.y <= yLine);
+  const out = [];
+  const n = pts.length;
+  for (let i=0;i<n;i++){
+    const cur = pts[i], prev = pts[(i-1+n)%n];
+    const curIn = inside(cur), prevIn = inside(prev);
+    if (curIn){
+      if (!prevIn){
+        const t = (yLine - prev.y)/(cur.y - prev.y);
+        out.push({ x: prev.x + t*(cur.x-prev.x), y: yLine });
+      }
+      out.push({ x: cur.x, y: cur.y });
+    } else if (prevIn){
+      const t = (yLine - prev.y)/(cur.y - prev.y);
+      out.push({ x: prev.x + t*(cur.x-prev.x), y: yLine });
+    }
   }
-  const hw = width/2 - inset, hh = height/2 - inset;
-  const chamfer = Math.max(Math.min(height * 0.16, width * 0.08) - inset*1.4, 4);
-  const path = new THREE.Path();
-  path.moveTo(-hw, -hh);
-  path.lineTo( hw, -hh);
-  path.lineTo( hw,  hh - chamfer);
-  path.lineTo( hw - chamfer, hh);
-  path.lineTo(-hw + chamfer, hh);
-  path.lineTo(-hw, hh - chamfer);
-  path.closePath();
-  return path;
+  return out;
 }
 
 // ---- generic arrowhead emblem ------------------------------------------
@@ -901,30 +988,23 @@ function rebuildSign(){
   clearSign();
 
   const cfg = PRESETS[state.preset];
-  // Font is driven by the lettering style: the flowing script (Vibur) when
-  // selected, otherwise the routed National Park serif for NPS presets or the
-  // block face for USFS.
-  let font;
-  if (state.lettering === 'script'){
-    font = scriptFont;
-  } else {
-    font = state.preset === 'usfs' ? hwFont : npFont;
-  }
   const fontSize = 60;
-  const { allShapeGroups, lineHeight } = textToShapes(font, state.text || ' ', fontSize);
+  const perLine = textToShapes(state.text || ' ', fontSize);
 
   const baseMat   = new THREE.MeshStandardMaterial({ color: state.baseColor,   roughness:0.85, metalness:0.05 });
   const letterMat = new THREE.MeshStandardMaterial({ color: state.letterColor, roughness:0.7,  metalness:0.05 });
 
-  // text bounds → fit scale
+  // measure each line's bounds in font space
   let maxLineWidth = 0;
-  allShapeGroups.forEach(shapes=>{
-    if (!shapes) return;
+  perLine.forEach(L=>{
+    if (!L) return;
     const box = new THREE.Box2();
-    shapes.forEach(sh=> sh.getPoints().forEach(p=> box.expandByPoint(p)));
-    if (!box.isEmpty()) maxLineWidth = Math.max(maxLineWidth, box.max.x - box.min.x);
+    L.shapes.forEach(sh=> sh.getPoints().forEach(p=> box.expandByPoint(p)));
+    L.box = box.isEmpty() ? null : box;
+    L.w = L.box ? (box.max.x - box.min.x) : 0;
+    maxLineWidth = Math.max(maxLineWidth, L.w);
   });
-  const numLines = allShapeGroups.length;
+  const numLines = perLine.length;
 
   const panelWidth = state.width;
   const panelDepth = state.thickness;
@@ -935,7 +1015,11 @@ function rebuildSign(){
   const plankEmblemH = (cfg.emblem && !cfg.overbar) ? panelWidth * 0.20 : 0;
 
   const scaleToFit = (panelWidth * 0.78) / Math.max(maxLineWidth, 1);
-  const textBlockHeight = numLines * lineHeight * scaleToFit;
+  // per-line leading scales with that line's own font size (script lines are taller)
+  perLine.forEach(L=>{ if (L) L.lineH = L.fontSize * (L.script ? 1.05 : 1.25); });
+  const blankLineH = fontSize * 1.0;
+  const textBlockHeightFont = perLine.reduce((sum,L)=> sum + (L ? L.lineH : blankLineH), 0);
+  const textBlockHeight = textBlockHeightFont * scaleToFit;
   const panelHeight = Math.max(
     textBlockHeight + overbarH + plankEmblemH + panelWidth*0.14,
     panelWidth*0.30
@@ -949,6 +1033,27 @@ function rebuildSign(){
   panelGeo.translate(0, 0, -panelDepth/2);
   const panelMesh = new THREE.Mesh(panelGeo, baseMat);
   signGroup.add(panelMesh);
+
+  // --- dual-tone upper band (USFS / plank styles) ---
+  // The face is split horizontally: the upper region gets the tone color as a
+  // thin cap, clipped to the panel silhouette via half-plane polygon clipping.
+  let toneSplitY = null;
+  if (state.tone === 'dual' && !cfg.overbar){
+    const splitFrac = 0.30; // split line sits ~30% down from the top
+    toneSplitY = halfH - panelHeight*splitFrac;
+    const outline = panelShape.getPoints(48);
+    const topPoly = clipPolygonHalfPlane(outline, toneSplitY, true);
+    if (topPoly.length >= 3){
+      const topShape = new THREE.Shape(topPoly.map(p=> new THREE.Vector2(p.x, p.y)));
+      const capDepth = Math.min(relief*0.5, 1.0);
+      const capGeo = new THREE.ExtrudeGeometry(topShape, { depth: capDepth, bevelEnabled:false });
+      const toneColor = cfg.toneColor || state.letterColor;
+      const capMat = new THREE.MeshStandardMaterial({ color: toneColor, roughness:0.82, metalness:0.05 });
+      const capMesh = new THREE.Mesh(capGeo, capMat);
+      capMesh.position.z = panelDepth/2 - capDepth;
+      signGroup.add(capMesh);
+    }
+  }
 
   // --- routed border groove (plank styles only) ---
   if (cfg.groove){
@@ -1004,14 +1109,22 @@ function rebuildSign(){
   const textZoneTop = halfH - overbarH - plankEmblemH;
   const textZoneBottom = -halfH + panelWidth*0.07;
   const textZoneMidY = (textZoneTop + textZoneBottom)/2;
-  let yCursor = textZoneMidY + textBlockHeight/2 - (lineHeight*scaleToFit)/2;
+  let yCursor = textZoneMidY + textBlockHeight/2;
 
-  allShapeGroups.forEach(shapes=>{
-    if (!shapes){ yCursor -= lineHeight*scaleToFit; return; }
-    const box = new THREE.Box2();
-    shapes.forEach(sh=> sh.getPoints().forEach(p=> box.expandByPoint(p)));
-    const lineWidth = (box.max.x - box.min.x) * scaleToFit;
-    const xOffset = -lineWidth/2 - box.min.x*scaleToFit;
+  // for dual-tone, letters that fall in the upper (tone) band need the base
+  // color to stay legible; lower-band letters use the normal letter color
+  const lowerLetterMat = letterMat;
+  const upperLetterMat = new THREE.MeshStandardMaterial({ color: state.baseColor, roughness:0.7, metalness:0.05 });
+
+  perLine.forEach(L=>{
+    if (!L){ yCursor -= blankLineH * scaleToFit; return; }
+    const advance = L.lineH * scaleToFit;
+    const lineCenterY = yCursor - advance/2;
+
+    const lineWidth = L.w * scaleToFit;
+    const xOffset = -lineWidth/2 - (L.box ? L.box.min.x*scaleToFit : 0);
+    // vertically center this line's glyph box on its row
+    const glyphMidFont = L.box ? (L.box.min.y + L.box.max.y)/2 : 0;
 
     let extrudeDepth, zPos;
     if (state.depth === 'raised'){
@@ -1022,14 +1135,17 @@ function rebuildSign(){
       extrudeDepth = Math.min(relief, panelDepth*0.4); zPos = faceZ - extrudeDepth;
     }
 
-    shapes.forEach(shape=>{
+    const mat = (toneSplitY !== null && lineCenterY > toneSplitY) ? upperLetterMat : lowerLetterMat;
+
+    L.shapes.forEach(shape=>{
       const geo = new THREE.ExtrudeGeometry(shape, { depth: extrudeDepth, bevelEnabled:false });
-      const mesh = new THREE.Mesh(geo, letterMat);
+      const mesh = new THREE.Mesh(geo, mat);
       mesh.scale.set(scaleToFit, -scaleToFit, 1); // font space is Y-down
-      mesh.position.set(xOffset, yCursor, zPos);
+      // place: x centered; y so the glyph box centers on lineCenterY (note Y flip)
+      mesh.position.set(xOffset, lineCenterY + glyphMidFont*scaleToFit, zPos);
       signGroup.add(mesh);
     });
-    yCursor -= lineHeight*scaleToFit;
+    yCursor -= advance;
   });
 
   // color-count + plate-fit readout
@@ -1046,6 +1162,12 @@ function rebuildSign(){
 /* =========================================================
    INIT
 ========================================================= */
+// align all control highlights with the initial state
+syncPillGroup('shapePills', 'shape', state.shapeStyle);
+syncPillGroup('tonePills', 'tone', state.tone);
+syncLetteringPills();
+updateHud();
+
 initScene();
 initFonts();
 </script>
